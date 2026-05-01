@@ -227,6 +227,8 @@ body{font-family:"Songti SC","SimSun","STSong",serif;background:var(--bg);color:
   <button onclick="sendAction('科举')">科举</button>
   <button onclick="sendAction('研发')">科技</button>
   <button onclick="sendAction('过月')">过月</button>
+  <button onclick="showHistory()" style="background:#444">历史记录</button>
+  <button onclick="deleteSave()" style="background:#600">新开存档</button>
 </div>
 
 <div class="input-area">
@@ -692,6 +694,11 @@ function addNarrative(text, type) {
   const narrative = document.getElementById('narrative');
   narrative.appendChild(div);
   narrative.scrollTop = narrative.scrollHeight;
+  // 记录到历史（跳过多余的系统消息）
+  if (!type || type !== 'system') {
+    chatHistory.push({time: new Date().toLocaleTimeString(), text: text.substring(0, 300)});
+    if (chatHistory.length > 80) chatHistory.shift();
+  }
 }
 
 function updateStatus(player) {
@@ -733,6 +740,43 @@ inputBox.addEventListener('input', function() {
   this.style.height = 'auto';
   this.style.height = Math.min(this.scrollHeight, 100) + 'px';
 });
+
+// === 历史记录 ===
+const chatHistory = [];
+
+function showHistory() {
+  if (chatHistory.length === 0) {
+    alert('暂无对话记录');
+    return;
+  }
+  let h = '<div style="max-height:60vh;overflow-y:auto;text-align:left;font-size:13px;line-height:1.6">';
+  h += '<h3>对话记录（最近80条）</h3>';
+  chatHistory.forEach(c => {
+    h += `<p><span style="color:#888">${c.time}</span> ${c.text.substring(0,200)}</p><hr style="opacity:0.2">`;
+  });
+  h += '</div>';
+  addNarrative(h, 'system');
+  // 滚动到底部
+  const nar = document.getElementById('narrative');
+  nar.scrollTop = nar.scrollHeight;
+}
+
+// === 新开存档 ===
+async function deleteSave() {
+  if (!confirm('确定删除当前存档并重新开始吗？\n此操作不可撤销！')) return;
+  try {
+    const r = await fetch(API + '/api/player/delete', { method: 'POST' });
+    const d = await r.json();
+    if (d.success) {
+      alert(d.message);
+      location.reload();
+    } else {
+      alert('删除失败：' + d.error);
+    }
+  } catch(e) {
+    alert('操作失败：' + e.message);
+  }
+}
 </script>
 </body>
 </html>

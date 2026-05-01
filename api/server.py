@@ -449,6 +449,27 @@ def business_strategies():
     return jsonify({"strategies": strategies})
 
 
+# ==================== 存档管理 API ====================
+
+@app.route('/api/player/delete', methods=['POST'])
+def delete_player():
+    """删除当前存档，重新开始"""
+    user_id = DEFAULT_USER
+    try:
+        from engine.db import get_db, DATABASE_URL
+        conn = get_db()
+        c = conn.cursor()
+        ph = '%s' if DATABASE_URL else '?'
+        tables = ['player', 'npc', 'skills', 'items', 'followers', 'tech_research', 'intelligence', 'world']
+        for t in tables:
+            c.execute(f"DELETE FROM {t} WHERE user_id={ph}", (user_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({"success": True, "message": "存档已删除，刷新页面重新创建角色"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 if __name__ == '__main__':
     print("=" * 50)
     print("《宣和二年》游戏服务器启动")

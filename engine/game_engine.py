@@ -1435,34 +1435,61 @@ def process_action(user_id, user_input):
     # 科举
     if action_type == "科举":
         from .exam import get_exam_question, grade_answer, get_player_exam_level
+        from .enhancements import EXAM_PREP_ACTIONS
+
+        current_time = player.get("current_time", "宣和二年正月")
+        is_exam_month = any(m in current_time for m in ["八月", "二月", "三月"])
+
+        # === 非考试月：备考 ===
+        if not is_exam_month:
+            # 具体备考行动
+            for prep_key in EXAM_PREP_ACTIONS:
+                if prep_key in user_input:
+                    prep = EXAM_PREP_ACTIONS[prep_key]
+                    check = action_energy_check(player, user_input, prep["精耗"])
+                    if not check['can_act']:
+                        return {"type": "科举", "narrative": check['reason'], "player": player}
+                    player['energy'] = check['new_energy']
+                    if prep.get("金耗"):
+                        player['money'] = max(0, player['money'] - prep["金耗"])
+                    save_player(user_id, {'energy': player['energy'], 'money': player['money']})
+                    return {
+                        "type": "备考", "narrative": f"【备考·{prep_key}】\n{prep['效果']}。",
+                        "harvest_tags": prep_key, "energy_cost": prep["精耗"], "player": player}
+
+            # 展示备考菜单
+            menu = "【科举备考】宣和科举：发解试(秋八月)→省试(春二月)→殿试(三月)\n\n可选行动：\n"
+            for k, v in EXAM_PREP_ACTIONS.items():
+                c = f"精{v['精耗']}" + (f" 金{v['金耗']}贯" if v.get('金耗') else "")
+                menu += f"  • {k}（{c}）—— {v['效果']}\n"
+            menu += "\n→ 输入对应行动备考，或'过月'推进时间。考试月将自动出题。"
+            return {"type": "备考", "narrative": menu, "harvest_tags": "备考", "energy_cost": 0, "player": player}
+
+        # === 考试月：出题/答题 ===
         level_name, total_score = get_player_exam_level(player)
         question = get_exam_question(level_name)
-        energy_cost = ENERGY_COST.get("科举", 5)
 
+        is_answer = len(user_input) > 10 and ("答" in user_input or "曰" in user_input or "论" in user_input)
+        if not is_answer:
+            energy_cost = 2
+            check = action_energy_check(player, user_input, energy_cost)
+            if not check['can_act']:
+                return {"type": "科举", "narrative": check['reason'], "player": player}
+            player['energy'] = check['new_energy']
+            save_player(user_id, {'energy': player['energy']})
+            return {
+                "type": "科举", "exam_mode": "question", "question": question,
+                "level": level_name, "total_score": total_score,
+                "narrative": f"⚡ 科举月！\n【{question['topic']}】{question.get('title')}\n{question.get('background','')}",
+                "harvest_tags": "获题", "energy_cost": energy_cost,
+                "guide_line": "→ 输入你的策论作答，或'过月'跳过。", "player": player}
+
+        # 作答评分
+        energy_cost = 5
         check = action_energy_check(player, user_input, energy_cost)
         if not check['can_act']:
             return {"type": "科举", "narrative": check['reason'], "player": player}
 
-        # 如果不是详细作答，只返回题目
-        is_answer = len(user_input) > 10 and ("答" in user_input or "曰" in user_input or "论" in user_input)
-        if not is_answer:
-            player['energy'] = check['new_energy']
-            save_player(user_id, {'energy': player['energy']})
-            q_title = question.get('title', '')
-            q_text = question.get('question', question.get('instruction', ''))
-            q_bg = question.get('background', question.get('instruction', ''))
-            return {
-                "type": "科举",
-                "exam_mode": "question",
-                "question": question,
-                "level": level_name,
-                "total_score": total_score,
-                "narrative": f"【{question['topic']}】{q_title}\n\n{q_bg}\n\n{q_text}",
-                "player": player,
-                "energy_cost": energy_cost,
-            }
-
-        # AI评分
         result = grade_answer(player, question, user_input)
         score = result['score']
         player['energy'] = check['new_energy']
