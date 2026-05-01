@@ -29,34 +29,17 @@ except Exception as e:
 
 @app.route('/api/dbcheck')
 def db_check():
-    """数据库诊断（含建表测试）"""
+    """数据库诊断"""
     result = {
         "DATABASE_URL_set": bool(os.environ.get("DATABASE_URL", "")),
         "python_version": sys.version,
     }
     try:
-        from engine.db import get_db, DATABASE_URL
+        from engine.db import get_db
         conn = get_db()
         c = conn.cursor()
         c.execute("SELECT 1")
         result["db_connect"] = "OK"
-        
-        # 查看已有表
-        if DATABASE_URL:
-            c.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
-        else:
-            c.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        tables = [r[0] for r in c.fetchall()]
-        result["tables"] = tables
-
-        # 主动尝试建表
-        from engine.db import init_db
-        try:
-            init_db()
-            result["init_db"] = "OK"
-        except Exception as e2:
-            result["init_db"] = str(e2)
-        
         conn.close()
     except Exception as e:
         result["db_connect"] = str(e)
@@ -82,8 +65,7 @@ def get_status():
         player = get_player(DEFAULT_USER)
         return jsonify({"exists": True, "player": player})
     except Exception as e:
-        import traceback
-        return jsonify({"exists": False, "error": str(e), "trace": traceback.format_exc()}), 500
+        return jsonify({"exists": False, "error": str(e)})
 
 
 @app.route('/api/create', methods=['POST'])
@@ -371,6 +353,49 @@ def exam_answer():
         "new_total": player['exam_total_score'],
         "level": get_player_exam_level(player),
     })
+
+
+# ==================== 情报 API ====================
+
+@app.route('/api/intel', methods=['GET'])
+def intel_list():
+    """获取情报列表"""
+    user_id = DEFAULT_USER
+    if not player_exists(user_id):
+        return jsonify({"error": "请先创建角色"}), 400
+    category = request.args.get('category', '')
+    from engine.db import get_intelligence
+    intel = get_intelligence(user_id, category if category else None)
+    return jsonify({"intelligence": intel, "count": len(intel)})
+
+
+# ==================== 随从 API ====================
+
+@app.route('/api/followers', methods=['GET'])
+def follower_list():
+    """获取随从列表"""
+    user_id = DEFAULT_USER
+    if not player_exists(user_id):
+        return jsonify({"error": "请先创建角色"}), 400
+    from engine.db import get_followers
+    followers = get_followers(user_id)
+    from engine.followers import get_follower_cap
+    player = get_player(user_id)
+    cap = get_follower_cap(player.get('power', '微末'))
+    return jsonify({"followers": [dict(f) for f in followers], "count": len(followers), "cap": cap})
+
+
+# ==================== 物品 API ====================
+
+@app.route('/api/items', methods=['GET'])
+def item_list():
+    """获取物品列表"""
+    user_id = DEFAULT_USER
+    if not player_exists(user_id):
+        return jsonify({"error": "请先创建角色"}), 400
+    from engine.db import get_items
+    items = get_items(user_id)
+    return jsonify({"items": [dict(i) for i in items], "count": len(items)})
 
 
 if __name__ == '__main__':

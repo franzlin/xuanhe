@@ -184,6 +184,20 @@ def init_db():
         completed_month {text_def} DEFAULT ''
     )''')
 
+    # 情报表
+    c.execute(f'''CREATE TABLE IF NOT EXISTS intelligence (
+        id {auto_id},
+        user_id {text_def} NOT NULL,
+        category {text_def} DEFAULT '',
+        content {text_def} DEFAULT '',
+        reliability {text_def} DEFAULT '可信',
+        acquired_month {text_def} DEFAULT '',
+        ttl_months INTEGER DEFAULT 2,
+        source {text_def} DEFAULT '',
+        is_used INTEGER DEFAULT 0,
+        is_fake INTEGER DEFAULT 0
+    )''')
+
     conn.commit()
     if not is_pg:
         _migrate_schema_sqlite(conn)
@@ -545,3 +559,71 @@ def get_npc_count_for_user(user_id):
     row = c.fetchone()
     conn.close()
     return row['cnt'] if row else 0
+
+
+# ==================== 情报CRUD ====================
+
+def add_intel(user_id, intel_data):
+    """添加一条情报"""
+    conn = get_db()
+    c = conn.cursor()
+    is_pg = bool(DATABASE_URL)
+    ph = '%s' if is_pg else '?'
+    data = {
+        "user_id": user_id,
+        "category": intel_data.get("分类", ""),
+        "content": intel_data.get("内容", ""),
+        "reliability": intel_data.get("可靠度", "可信"),
+        "acquired_month": intel_data.get("获取时间", ""),
+        "ttl_months": intel_data.get("失效月份", 2),
+        "source": intel_data.get("来源渠道", ""),
+        "is_used": 0,
+        "is_fake": 1 if intel_data.get("可疑") else 0,
+    }
+    cols = ', '.join(data.keys())
+    placeholders = ', '.join([ph] * len(data))
+    c.execute(f"INSERT INTO intelligence ({cols}) VALUES ({placeholders})", list(data.values()))
+    conn.commit()
+    conn.close()
+
+
+def get_intelligence(user_id, category=None, active_only=True):
+    """获取情报列表"""
+    conn = get_db()
+    c = conn.cursor()
+    ph = '%s' if DATABASE_URL else '?'
+    sql = f"SELECT * FROM intelligence WHERE user_id={ph}"
+    params = [user_id]
+    if category:
+        sql += f" AND category={ph}"
+        params.append(category)
+    if active_only:
+        sql += " AND is_used=0"
+    sql += " ORDER BY acquired_month DESC"
+    c.execute(sql, params)
+    rows = c.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def mark_intel_used(intel_id):
+    """标记情报已使用"""
+    conn = get_db()
+    c = conn.cursor()
+    ph = '%s' if DATABASE_URL else '?'
+    c.execute(f"UPDATE intelligence SET is_used=1 WHERE id={ph}", (intel_id,))
+    conn.commit()
+    conn.close()
+
+
+def cleanup_expired_intel(user_id, current_month):
+    """清理过期情报"""
+    import re
+    from engine.intelligence import is_intel_expired
+    intel_list = get_intelligence(user_id, active_only=True)
+    cleaned = 0
+    for i in intel_list:
+        if is_intel_expired({"acquired_month": i.get("acquired_month", ""), "ttl_months": i.get("ttl_months", 2)}, current_month):
+            mark_intel_used(i["id"])
+            cleaned += 1
+    return cleaned
