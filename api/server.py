@@ -59,10 +59,14 @@ def index():
 @app.route('/api/status', methods=['GET'])
 def get_status():
     """获取当前游戏状态"""
-    if not player_exists(DEFAULT_USER):
-        return jsonify({"exists": False})
-    player = get_player(DEFAULT_USER)
-    return jsonify({"exists": True, "player": player})
+    try:
+        if not player_exists(DEFAULT_USER):
+            return jsonify({"exists": False})
+        player = get_player(DEFAULT_USER)
+        return jsonify({"exists": True, "player": player})
+    except Exception as e:
+        import traceback
+        return jsonify({"exists": False, "error": str(e), "trace": traceback.format_exc()}), 500
 
 
 @app.route('/api/create', methods=['POST'])
