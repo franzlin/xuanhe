@@ -17,8 +17,34 @@ from engine.exam import get_exam_question, grade_answer, get_player_exam_level
 
 app = Flask(__name__, static_folder='../static', template_folder='../templates')
 
-# 自动初始化数据库（gunicorn/run.py均会执行）
-init_db()
+# 自动初始化数据库，失败时打印到日志
+try:
+    init_db()
+    print("数据库初始化成功")
+except Exception as e:
+    print(f"数据库初始化失败: {e}")
+    import traceback
+    traceback.print_exc()
+
+
+@app.route('/api/dbcheck')
+def db_check():
+    """数据库诊断"""
+    import sys
+    result = {
+        "DATABASE_URL_set": bool(os.environ.get("DATABASE_URL", "")),
+        "python_version": sys.version,
+    }
+    try:
+        from engine.db import get_db
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("SELECT 1")
+        result["db_connect"] = "OK"
+        conn.close()
+    except Exception as e:
+        result["db_connect"] = str(e)
+    return jsonify(result)
 
 # 初始化数据库
 init_db()
