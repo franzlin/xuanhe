@@ -30,7 +30,6 @@ except Exception as e:
 @app.route('/api/dbcheck')
 def db_check():
     """数据库诊断"""
-    import sys
     result = {
         "DATABASE_URL_set": bool(os.environ.get("DATABASE_URL", "")),
         "python_version": sys.version,
@@ -46,8 +45,6 @@ def db_check():
         result["db_connect"] = str(e)
     return jsonify(result)
 
-# 初始化数据库
-init_db()
 
 # 简单的user_id映射（单用户模式）
 DEFAULT_USER = "player_1"
@@ -130,14 +127,12 @@ def month_settle():
 @app.route('/api/reset', methods=['POST'])
 def reset_game():
     """重置游戏（删除角色）"""
-    from engine.db import get_db
+    from engine.db import get_db, DATABASE_URL
     conn = get_db()
-    conn.execute("DELETE FROM player WHERE user_id=?", (DEFAULT_USER,))
-    conn.execute("DELETE FROM npc WHERE user_id=?", (DEFAULT_USER,))
-    conn.execute("DELETE FROM skills WHERE user_id=?", (DEFAULT_USER,))
-    conn.execute("DELETE FROM items WHERE user_id=?", (DEFAULT_USER,))
-    conn.execute("DELETE FROM followers WHERE user_id=?", (DEFAULT_USER,))
-    conn.execute("DELETE FROM world WHERE user_id=?", (DEFAULT_USER,))
+    ph = '%s' if DATABASE_URL else '?'
+    tables = ['player', 'npc', 'skills', 'items', 'followers', 'world']
+    for t in tables:
+        conn.execute(f"DELETE FROM {t} WHERE user_id={ph}", (DEFAULT_USER,))
     conn.commit()
     conn.close()
     return jsonify({"success": True})
@@ -247,10 +242,11 @@ def npc_list():
         return jsonify({"error": "请先创建角色"}), 400
 
     if faction:
-        from engine.db import get_db
+        from engine.db import get_db, DATABASE_URL
         conn = get_db()
+        ph = '%s' if DATABASE_URL else '?'
         rows = conn.execute(
-            "SELECT * FROM npc WHERE user_id=? AND npc_faction=? AND is_active='true' ORDER BY bond",
+            f"SELECT * FROM npc WHERE user_id={ph} AND npc_faction={ph} AND is_active='true' ORDER BY bond",
             (user_id, faction)
         ).fetchall()
         conn.close()
