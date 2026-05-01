@@ -214,6 +214,11 @@ def _migrate_schema_sqlite(conn):
             "milestones TEXT DEFAULT '[]'",
             "faction_alignment TEXT DEFAULT ''",
             "exam_total_score INTEGER DEFAULT 0",
+            "children TEXT DEFAULT '[]'",
+            "favor INTEGER DEFAULT 50",
+            "harem_rank_index INTEGER DEFAULT 0",
+            "is_pregnant INTEGER DEFAULT 0",
+            "pregnancy_months INTEGER DEFAULT 0",
         ],
         "npc": [
             "npc_official_title TEXT DEFAULT ''",
