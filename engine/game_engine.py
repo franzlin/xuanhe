@@ -22,6 +22,14 @@ from .items import (evaluate_gift_match, apply_equipment_bonus, use_poison,
                      check_item_risk, create_item as make_item, ITEM_CATEGORIES)
 from .followers import (create_follower, use_follower_action, check_loyalty_change,
                          check_follower_death_or_betray, get_follower_cap, FOLLOWER_TYPES)
+from .letters import (generate_letter, should_send_letter, format_letter_for_display,
+                       handle_reply_command, get_travel_time, check_letter_risk)
+from .harem import (get_favor_level, change_favor, execute_court_struggle,
+                     pregnancy_check, childbirth, trigger_palace_event)
+from .achievements import (evaluate_ranking, format_ranking, check_milestones,
+                            generate_memory, create_keepsake)
+from .business_advanced import (execute_advanced_strategy, get_available_strategies,
+                                 get_market_conditions, ADVANCED_STRATEGIES)
 
 logger = logging.getLogger(__name__)
 
@@ -739,6 +747,35 @@ def month_settle(user_id):
         cleaned = cleanup_expired_intel(user_id, player.get('current_time', '宣和二年正月'))
         if cleaned > 0:
             details.append(f"【情报】{cleaned}条过期情报已失效")
+    except Exception:
+        pass
+
+    # 8.8 书信检查（过月随机触发）
+    try:
+        npcs = get_npcs(user_id)
+        for n in npcs:
+            letter_type = should_send_letter(n, player.get('location', ''), player.get('total_months_played', 1))
+            if letter_type:
+                letter = generate_letter(letter_type, n.get('name', ''), n.get('npc_location', ''))
+                if letter:
+                    distance = get_travel_time(n.get('npc_location', ''), player.get('location', ''))
+                    risk = check_letter_risk(distance)
+                    risk_text = f"（风险：{risk['类型']}）" if risk else ""
+                    details.append(f"【书信】收到{n['name']}来信——{format_letter_for_display(letter)[:50]}...{risk_text}")
+    except Exception:
+        pass
+
+    # 8.9 里程碑检查
+    try:
+        existing = player.get('milestones', '[]')
+        if isinstance(existing, str):
+            existing = json.loads(existing) if existing else []
+        new_ms = check_milestones(player, npcs if 'npcs' in dir() else [], existing)
+        if new_ms:
+            for ms in new_ms:
+                details.append(f"【里程碑】{ms['名称']}——{ms['叙事']}")
+            existing.extend([m['名称'] for m in new_ms])
+            player['milestones'] = json.dumps(existing, ensure_ascii=False)
     except Exception:
         pass
 

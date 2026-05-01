@@ -398,6 +398,57 @@ def item_list():
     return jsonify({"items": [dict(i) for i in items], "count": len(items)})
 
 
+# ==================== 排行 API ====================
+
+@app.route('/api/rankings', methods=['GET'])
+def ranking_list():
+    """获取排行"""
+    user_id = DEFAULT_USER
+    if not player_exists(user_id):
+        return jsonify({"error": "请先创建角色"}), 400
+    player = get_player(user_id)
+    from engine.achievements import evaluate_ranking, format_ranking
+    rankings = {}
+    for dim in ["家产排名", "权势排名", "文名排名", "江湖排名"]:
+        desc, _ = evaluate_ranking(player, dim)
+        rankings[dim] = format_ranking(dim, player)
+    return jsonify({"rankings": rankings})
+
+
+# ==================== 里程碑 API ====================
+
+@app.route('/api/milestones', methods=['GET'])
+def milestone_list():
+    """获取里程碑"""
+    user_id = DEFAULT_USER
+    if not player_exists(user_id):
+        return jsonify({"error": "请先创建角色"}), 400
+    player = get_player(user_id)
+    import json
+    milestones = player.get('milestones', '[]')
+    if isinstance(milestones, str):
+        milestones = json.loads(milestones) if milestones else []
+    from engine.db import get_npcs
+    npcs = get_npcs(user_id)
+    from engine.achievements import check_milestones
+    new_ms = check_milestones(player, npcs, milestones)
+    return jsonify({"milestones": milestones, "new": [m['名称'] for m in new_ms]})
+
+
+# ==================== 经营高级策略 API ====================
+
+@app.route('/api/business/strategies', methods=['GET'])
+def business_strategies():
+    """获取可用的高级经营策略"""
+    user_id = DEFAULT_USER
+    if not player_exists(user_id):
+        return jsonify({"error": "请先创建角色"}), 400
+    player = get_player(user_id)
+    from engine.business_advanced import get_available_strategies
+    strategies = get_available_strategies(player)
+    return jsonify({"strategies": strategies})
+
+
 if __name__ == '__main__':
     print("=" * 50)
     print("《宣和二年》游戏服务器启动")
