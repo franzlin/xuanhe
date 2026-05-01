@@ -29,17 +29,34 @@ except Exception as e:
 
 @app.route('/api/dbcheck')
 def db_check():
-    """数据库诊断"""
+    """数据库诊断（含建表测试）"""
     result = {
         "DATABASE_URL_set": bool(os.environ.get("DATABASE_URL", "")),
         "python_version": sys.version,
     }
     try:
-        from engine.db import get_db
+        from engine.db import get_db, DATABASE_URL
         conn = get_db()
         c = conn.cursor()
         c.execute("SELECT 1")
         result["db_connect"] = "OK"
+        
+        # 查看已有表
+        if DATABASE_URL:
+            c.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public'")
+        else:
+            c.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tables = [r[0] for r in c.fetchall()]
+        result["tables"] = tables
+
+        # 主动尝试建表
+        from engine.db import init_db
+        try:
+            init_db()
+            result["init_db"] = "OK"
+        except Exception as e2:
+            result["init_db"] = str(e2)
+        
         conn.close()
     except Exception as e:
         result["db_connect"] = str(e)
