@@ -30,11 +30,8 @@ def _get_pg():
     import psycopg2
     import psycopg2.extras
     conn = psycopg2.connect(DATABASE_URL)
-    conn.autocommit = True
-    # 使cursor返回dict-like行
-    def _dict_row(cursor):
-        cols = [desc[0] for desc in cursor.description] if cursor.description else []
-        return lambda *args: dict(zip(cols, args))
+    conn.autocommit = False  # 手动commit
+    # 所有cursor默认返回dict行
     conn.cursor_factory = psycopg2.extras.RealDictCursor
     return conn
 
