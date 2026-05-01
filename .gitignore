@@ -1,0 +1,8 @@
+# 宣和二年 .gitignore
+__pycache__/
+*.pyc
+*.pyo
+*.db
+data/
+ai_config.json
+*.log
