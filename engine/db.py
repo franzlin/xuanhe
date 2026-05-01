@@ -220,12 +220,9 @@ def _migrate_schema_sqlite(conn):
 def get_player(user_id):
     conn = get_db()
     c = conn.cursor()
-    try:
-        c.execute("SELECT * FROM player WHERE user_id=?", (user_id,))
-        row = c.fetchone()
-    except Exception:
-        c.execute("SELECT * FROM player WHERE user_id=%s", (user_id,))
-        row = c.fetchone()
+    ph = '%s' if DATABASE_URL else '?'
+    c.execute(f"SELECT * FROM player WHERE user_id={ph}", (user_id,))
+    row = c.fetchone()
     conn.close()
     if row:
         return dict(row)
@@ -237,22 +234,19 @@ def save_player(user_id, data):
     conn = get_db()
     c = conn.cursor()
     is_pg = bool(DATABASE_URL)
+    ph = '%s' if is_pg else '?'
 
     fields = []
     values = []
     for k, v in data.items():
         if k == 'user_id':
             continue
-        fields.append(f"{k}=?")
+        fields.append(f"{k}={ph}")
         values.append(v)
     values.append(user_id)
 
-    if is_pg:
-        set_clause = ', '.join(fields).replace('?', '%s')
-        c.execute(f"UPDATE player SET {set_clause} WHERE user_id=%s", values)
-    else:
-        set_clause = ', '.join(fields)
-        c.execute(f"UPDATE player SET {set_clause} WHERE user_id=?", values)
+    set_clause = ', '.join(fields)
+    c.execute(f"UPDATE player SET {set_clause} WHERE user_id={ph}", values)
     conn.commit()
     conn.close()
 
@@ -260,12 +254,9 @@ def save_player(user_id, data):
 def player_exists(user_id):
     conn = get_db()
     c = conn.cursor()
-    try:
-        c.execute("SELECT 1 FROM player WHERE user_id=?", (user_id,))
-        row = c.fetchone()
-    except Exception:
-        c.execute("SELECT 1 FROM player WHERE user_id=%s", (user_id,))
-        row = c.fetchone()
+    ph = '%s' if DATABASE_URL else '?'
+    c.execute(f"SELECT 1 FROM player WHERE user_id={ph}", (user_id,))
+    row = c.fetchone()
     conn.close()
     return row is not None
 
@@ -293,10 +284,8 @@ def create_player(user_id, data):
 def get_npcs(user_id):
     conn = get_db()
     c = conn.cursor()
-    try:
-        c.execute("SELECT * FROM npc WHERE user_id=? AND is_active='true' ORDER BY bond", (user_id,))
-    except Exception:
-        c.execute("SELECT * FROM npc WHERE user_id=%s AND is_active='true' ORDER BY bond", (user_id,))
+    ph = '%s' if DATABASE_URL else '?'
+    c.execute(f"SELECT * FROM npc WHERE user_id={ph} AND is_active='true' ORDER BY bond", (user_id,))
     rows = c.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -305,10 +294,8 @@ def get_npcs(user_id):
 def get_npc(user_id, npc_name):
     conn = get_db()
     c = conn.cursor()
-    try:
-        c.execute("SELECT * FROM npc WHERE user_id=? AND name=? AND is_active='true'", (user_id, npc_name))
-    except Exception:
-        c.execute("SELECT * FROM npc WHERE user_id=%s AND name=%s AND is_active='true'", (user_id, npc_name))
+    ph = '%s' if DATABASE_URL else '?'
+    c.execute(f"SELECT * FROM npc WHERE user_id={ph} AND name={ph} AND is_active='true'", (user_id, npc_name))
     row = c.fetchone()
     conn.close()
     if row:
@@ -331,19 +318,15 @@ def create_npc(user_id, data):
 def update_npc(user_id, npc_name, data):
     conn = get_db()
     c = conn.cursor()
-    is_pg = bool(DATABASE_URL)
+    ph = '%s' if DATABASE_URL else '?'
     fields = []
     values = []
     for k, v in data.items():
-        fields.append(f"{k}=?")
+        fields.append(f"{k}={ph}")
         values.append(v)
     values.extend([user_id, npc_name])
-    if is_pg:
-        set_clause = ', '.join(fields).replace('?', '%s')
-        c.execute(f"UPDATE npc SET {set_clause} WHERE user_id=%s AND name=%s", values)
-    else:
-        set_clause = ', '.join(fields)
-        c.execute(f"UPDATE npc SET {set_clause} WHERE user_id=? AND name=?", values)
+    set_clause = ', '.join(fields)
+    c.execute(f"UPDATE npc SET {set_clause} WHERE user_id={ph} AND name={ph}", values)
     conn.commit()
     conn.close()
 
@@ -353,10 +336,8 @@ def update_npc(user_id, npc_name, data):
 def get_skills(user_id):
     conn = get_db()
     c = conn.cursor()
-    try:
-        c.execute("SELECT * FROM skills WHERE user_id=?", (user_id,))
-    except Exception:
-        c.execute("SELECT * FROM skills WHERE user_id=%s", (user_id,))
+    ph = '%s' if DATABASE_URL else '?'
+    c.execute(f"SELECT * FROM skills WHERE user_id={ph}", (user_id,))
     rows = c.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -365,13 +346,10 @@ def get_skills(user_id):
 def create_skill(user_id, skill_name, level):
     conn = get_db()
     c = conn.cursor()
+    ph = '%s' if DATABASE_URL else '?'
     try:
-        if bool(DATABASE_URL):
-            c.execute("INSERT INTO skills (user_id, skill_name, level) VALUES (%s,%s,%s)",
-                      (user_id, skill_name, level))
-        else:
-            c.execute("INSERT INTO skills (user_id, skill_name, level) VALUES (?,?,?)",
-                      (user_id, skill_name, level))
+        c.execute(f"INSERT INTO skills (user_id, skill_name, level) VALUES ({ph},{ph},{ph})",
+                  (user_id, skill_name, level))
     except Exception:
         pass
     conn.commit()
@@ -381,18 +359,14 @@ def create_skill(user_id, skill_name, level):
 def update_skill(user_id, skill_name, data):
     conn = get_db()
     c = conn.cursor()
-    is_pg = bool(DATABASE_URL)
+    ph = '%s' if DATABASE_URL else '?'
     fields = []
     values = []
     for k, v in data.items():
-        fields.append(f"{k}=?")
+        fields.append(f"{k}={ph}")
         values.append(v)
     values.extend([user_id, skill_name])
-    if is_pg:
-        set_clause = ', '.join(fields).replace('?', '%s')
-        c.execute(f"UPDATE skills SET {set_clause} WHERE user_id=%s AND skill_name=%s", values)
-    else:
-        c.execute(f"UPDATE skills SET {set_clause} WHERE user_id=? AND skill_name=?", values)
+    c.execute(f"UPDATE skills SET {', '.join(fields)} WHERE user_id={ph} AND skill_name={ph}", values)
     conn.commit()
     conn.close()
 
@@ -402,10 +376,8 @@ def update_skill(user_id, skill_name, data):
 def get_items(user_id):
     conn = get_db()
     c = conn.cursor()
-    try:
-        c.execute("SELECT * FROM items WHERE user_id=? ORDER BY acquired_month", (user_id,))
-    except Exception:
-        c.execute("SELECT * FROM items WHERE user_id=%s ORDER BY acquired_month", (user_id,))
+    ph = '%s' if DATABASE_URL else '?'
+    c.execute(f"SELECT * FROM items WHERE user_id={ph} ORDER BY acquired_month", (user_id,))
     rows = c.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -428,10 +400,8 @@ def create_item(user_id, data):
 def get_followers(user_id):
     conn = get_db()
     c = conn.cursor()
-    try:
-        c.execute("SELECT * FROM followers WHERE user_id=?", (user_id,))
-    except Exception:
-        c.execute("SELECT * FROM followers WHERE user_id=%s", (user_id,))
+    ph = '%s' if DATABASE_URL else '?'
+    c.execute(f"SELECT * FROM followers WHERE user_id={ph}", (user_id,))
     rows = c.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -442,10 +412,8 @@ def get_followers(user_id):
 def get_world(user_id):
     conn = get_db()
     c = conn.cursor()
-    try:
-        c.execute("SELECT * FROM world WHERE user_id=?", (user_id,))
-    except Exception:
-        c.execute("SELECT * FROM world WHERE user_id=%s", (user_id,))
+    ph = '%s' if DATABASE_URL else '?'
+    c.execute(f"SELECT * FROM world WHERE user_id={ph}", (user_id,))
     row = c.fetchone()
     conn.close()
     if row:
@@ -456,13 +424,10 @@ def get_world(user_id):
 def create_world_faction(user_id, faction_name, influence='中', treasury=0):
     conn = get_db()
     c = conn.cursor()
+    ph = '%s' if DATABASE_URL else '?'
     try:
-        if bool(DATABASE_URL):
-            c.execute("INSERT INTO world (user_id, faction_name, influence, treasury) VALUES (%s,%s,%s,%s)",
-                      (user_id, faction_name, influence, treasury))
-        else:
-            c.execute("INSERT INTO world (user_id, faction_name, influence, treasury) VALUES (?,?,?,?)",
-                      (user_id, faction_name, influence, treasury))
+        c.execute(f"INSERT INTO world (user_id, faction_name, influence, treasury) VALUES ({ph},{ph},{ph},{ph})",
+                  (user_id, faction_name, influence, treasury))
     except Exception:
         pass
     conn.commit()
@@ -484,10 +449,8 @@ def init_npc_data(user_id, faction):
     conn = get_db()
     c = conn.cursor()
     # 先清理旧数据
-    if is_pg:
-        c.execute("DELETE FROM npc WHERE user_id=%s", (user_id,))
-    else:
-        c.execute("DELETE FROM npc WHERE user_id=?", (user_id,))
+    ph = '%s' if is_pg else '?'
+    c.execute(f"DELETE FROM npc WHERE user_id={ph}", (user_id,))
 
     for npc in npcs:
         data = {
@@ -529,10 +492,8 @@ def init_npc_data(user_id, faction):
 def get_tech_research(user_id):
     conn = get_db()
     c = conn.cursor()
-    try:
-        c.execute("SELECT * FROM tech_research WHERE user_id=? ORDER BY category, tech_name", (user_id,))
-    except Exception:
-        c.execute("SELECT * FROM tech_research WHERE user_id=%s ORDER BY category, tech_name", (user_id,))
+    ph = '%s' if DATABASE_URL else '?'
+    c.execute(f"SELECT * FROM tech_research WHERE user_id={ph} ORDER BY category, tech_name", (user_id,))
     rows = c.fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -543,22 +504,18 @@ def init_tech_research(user_id, tech_names):
     conn = get_db()
     c = conn.cursor()
     is_pg = bool(DATABASE_URL)
-    if is_pg:
-        c.execute("DELETE FROM tech_research WHERE user_id=%s", (user_id,))
-    else:
-        c.execute("DELETE FROM tech_research WHERE user_id=?", (user_id,))
+    ph = '%s' if is_pg else '?'
+    c.execute(f"DELETE FROM tech_research WHERE user_id={ph}", (user_id,))
     for tech in tech_names:
         try:
             if is_pg:
                 c.execute(
-                    "INSERT INTO tech_research (user_id, tech_name, category, status, research_points, total_points_required) VALUES (%s,%s,%s,%s,%s,%s)",
-                    (user_id, tech['name'], tech['category'], 'locked', 0, tech['cost'])
-                )
+                    f"INSERT INTO tech_research (user_id, tech_name, category, status, research_points, total_points_required) VALUES ({ph},{ph},{ph},{ph},{ph},{ph}) ON CONFLICT DO NOTHING",
+                    (user_id, tech['name'], tech['category'], 'locked', 0, tech['cost']))
             else:
                 c.execute(
-                    "INSERT OR IGNORE INTO tech_research (user_id, tech_name, category, status, research_points, total_points_required) VALUES (?,?,?,?,?,?)",
-                    (user_id, tech['name'], tech['category'], 'locked', 0, tech['cost'])
-                )
+                    f"INSERT OR IGNORE INTO tech_research (user_id, tech_name, category, status, research_points, total_points_required) VALUES ({ph},{ph},{ph},{ph},{ph},{ph})",
+                    (user_id, tech['name'], tech['category'], 'locked', 0, tech['cost']))
         except Exception:
             pass
     conn.commit()
@@ -568,16 +525,14 @@ def init_tech_research(user_id, tech_names):
 def update_tech_research(user_id, tech_name, data):
     conn = get_db()
     c = conn.cursor()
-    is_pg = bool(DATABASE_URL)
+    ph = '%s' if DATABASE_URL else '?'
     fields = []
     values = []
     for k, v in data.items():
-        pl = '%s' if is_pg else '?'
-        fields.append(f"{k}={pl}")
+        fields.append(f"{k}={ph}")
         values.append(v)
     values.extend([user_id, tech_name])
-    c.execute(f"UPDATE tech_research SET {', '.join(fields)} WHERE user_id=%s AND tech_name=%s" if is_pg
-              else f"UPDATE tech_research SET {', '.join(fields)} WHERE user_id=? AND tech_name=?", values)
+    c.execute(f"UPDATE tech_research SET {', '.join(fields)} WHERE user_id={ph} AND tech_name={ph}", values)
     conn.commit()
     conn.close()
 
@@ -585,10 +540,8 @@ def update_tech_research(user_id, tech_name, data):
 def get_npc_count_for_user(user_id):
     conn = get_db()
     c = conn.cursor()
-    try:
-        c.execute("SELECT COUNT(*) as cnt FROM npc WHERE user_id=? AND is_active='true'", (user_id,))
-    except Exception:
-        c.execute("SELECT COUNT(*) as cnt FROM npc WHERE user_id=%s AND is_active='true'", (user_id,))
+    ph = '%s' if DATABASE_URL else '?'
+    c.execute(f"SELECT COUNT(*) as cnt FROM npc WHERE user_id={ph} AND is_active='true'", (user_id,))
     row = c.fetchone()
     conn.close()
     return row['cnt'] if row else 0
