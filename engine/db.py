@@ -90,7 +90,7 @@ def init_db():
         personal_desire {text_def} DEFAULT '',
         desire_stage {text_def} DEFAULT '未启程',
         location {text_def} DEFAULT '东京开封府',
-        current_time {text_def} DEFAULT '宣和二年正月',
+        "current_time" {text_def} DEFAULT '宣和二年正月',
         month_days_elapsed INTEGER DEFAULT 0,
         total_months_played INTEGER DEFAULT 0,
         crime_this_month INTEGER DEFAULT 0,
