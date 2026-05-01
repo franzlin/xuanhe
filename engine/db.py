@@ -26,12 +26,11 @@ def _get_sqlite():
     return conn
 
 def _get_pg():
-    """PostgreSQL云端连接"""
+    """PostgreSQL云端连接（Railway要求SSL）"""
     import psycopg2
     import psycopg2.extras
-    conn = psycopg2.connect(DATABASE_URL)
-    conn.autocommit = False  # 手动commit
-    # 所有cursor默认返回dict行
+    conn = psycopg2.connect(DATABASE_URL, sslmode='require')
+    conn.autocommit = False
     conn.cursor_factory = psycopg2.extras.RealDictCursor
     return conn
 
